@@ -1,12 +1,2 @@
 "page","status","rule_id","impact","description","affected_elements","help_url","error"
-"https://sites.psu.edu/teachingonlineprogram","error","","","","","","page.goto: Target page, context or browser has been closed
-Call log:
-  - navigating to ""https://sites.psu.edu/teachingonlineprogram"", waiting until ""domcontentloaded""
-"
-"https://sites.psu.edu/official-sites/","scanned","color-contrast","serious","Elements must meet minimum color contrast ratio thresholds","1","https://dequeuniversity.com/rules/axe/4.13/color-contrast?application=playwright",""
-"https://sites.psu.edu/bcat-3/","scanned","","","","","",""
-"https://sites.psu.edu/","scanned","","","","","",""
-"https://sites.psu.edu/official-sites/launch-requirements/","scanned","","","","","",""
-"https://sites.psu.edu/site-map/","scanned","","","","","",""
-"https://sites.psu.edu/support/","scanned","","","","","",""
-"https://sites.psu.edu/create-a-site/","scanned","color-contrast","serious","Elements must meet minimum color contrast ratio thresholds","1","https://dequeuniversity.com/rules/axe/4.13/color-contrast?application=playwright",""
+"https://sites.psu.edu/teachingonlineprogram","error","","","","","","Page redirected outside the requested site: https://top.psu.edu/"
