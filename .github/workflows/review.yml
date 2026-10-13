@@ -45,7 +45,7 @@ jobs:
       - name: Run accessibility scan
         env:
           ALLOWED_HOSTS: 'sites.psu.edu'
-          ALLOW_SITES_SUBDOMAINS: 'true'
+          ALLOW_SITES_SUBDOMAINS: 'false'
           MAX_PAGES: '25'
         run: npm run scan
       - name: Commit updated reports
