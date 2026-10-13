@@ -1,2 +1,5 @@
 "page","status","rule_id","impact","description","affected_elements","help_url","error"
-"https://sites.psu.edu/teachingonlineprogram","error","","","","","","Page redirected outside the requested site: https://top.psu.edu/"
+"https://top.psu.edu/","scanned","color-contrast","serious","Elements must meet minimum color contrast ratio thresholds","3","https://dequeuniversity.com/rules/axe/4.13/color-contrast?application=playwright",""
+"https://top.psu.edu/","scanned","frame-title","serious","Frames must have an accessible name","1","https://dequeuniversity.com/rules/axe/4.13/frame-title?application=playwright",""
+"https://top.psu.edu/","scanned","link-in-text-block","serious","Links must be distinguishable without relying on color","2","https://dequeuniversity.com/rules/axe/4.13/link-in-text-block?application=playwright",""
+"https://top.psu.edu/","scanned","meta-viewport","moderate","Zooming and scaling must not be disabled","1","https://dequeuniversity.com/rules/axe/4.13/meta-viewport?application=playwright",""
