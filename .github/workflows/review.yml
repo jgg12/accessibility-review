@@ -44,6 +44,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - name: Run accessibility scan
         env:
+          ALLOWED_HOSTS: 'sites.psu.edu'
           ALLOW_SITES_SUBDOMAINS: 'true'
           MAX_PAGES: '25'
         run: npm run scan
