@@ -8,58 +8,57 @@ import dns from 'node:dns/promises';
 import net from 'node:net';
 
 const siteInput = process.env.SITE_URL || process.argv[2];
-const requestedMax = Number(process.env.MAX_PAGES || 25);
-const maxPages = Number.isFinite(requestedMax)
-  ? Math.min(Math.max(Math.floor(requestedMax), 1), 100)
-  : 25;
+const maxPages = Math.min(
+  Math.max(Number(process.env.MAX_PAGES || 25) || 25, 1),
+  100
+);
 const outputDir = path.resolve('docs');
 
 if (!siteInput) {
   throw new Error('Set SITE_URL or pass a website URL.');
 }
 
-const site = new URL(siteInput);
-
-if (site.protocol !== 'https:') {
-  throw new Error('Only HTTPS websites are supported.');
+// Only allow public Penn State HTTPS domains.
+function isPennStateHost(hostname) {
+  const host = hostname.toLowerCase().replace(/\.$/, '');
+  return host === 'psu.edu' || host.endsWith('.psu.edu');
 }
 
-if (site.username || site.password || site.port) {
-  throw new Error('Credentials and custom ports are not supported.');
+function validateUrl(raw, base) {
+  let url;
+
+  try {
+    url = new URL(raw, base);
+  } catch {
+    throw new Error(`Invalid URL: ${raw}`);
+  }
+
+  if (
+    url.protocol !== 'https:' ||
+    url.username ||
+    url.password ||
+    url.port ||
+    !isPennStateHost(url.hostname)
+  ) {
+    throw new Error(`URL is not an approved Penn State HTTPS URL: ${url}`);
+  }
+
+  url.hash = '';
+  return url;
 }
 
-const allowed = (process.env.ALLOWED_HOSTS || '')
-  .split(',')
-  .map(s => s.trim().toLowerCase())
-  .filter(Boolean);
+const requestedSite = validateUrl(siteInput);
 
-if (!allowed.length) {
+if (requestedSite.hostname !== 'sites.psu.edu') {
   throw new Error(
-    'Set ALLOWED_HOSTS to a comma-separated list of authorized exact hostnames.'
+    'The starting URL must be a sites.psu.edu website.'
   );
 }
 
-const hostname = site.hostname.toLowerCase();
-
-if (
-  !allowed.includes(hostname) &&
-  !(
-    process.env.ALLOW_SITES_SUBDOMAINS === 'true' &&
-    (
-      hostname === 'sites.psu.edu' ||
-      hostname.endsWith('.sites.psu.edu')
-    )
-  )
-) {
-  throw new Error(`Host ${hostname} is not authorized.`);
-}
-
-// --------------------------------------------------
-// Network security
-// --------------------------------------------------
-
 function isPrivate(ip) {
-  if (net.isIP(ip) === 4) {
+  const version = net.isIP(ip);
+
+  if (version === 4) {
     const p = ip.split('.').map(Number);
 
     return (
@@ -72,220 +71,189 @@ function isPrivate(ip) {
       (p[0] === 192 && p[1] === 168) ||
       (p[0] === 100 && p[1] >= 64 && p[1] <= 127) ||
       (p[0] === 192 && p[1] === 0 && p[2] === 0) ||
-      (p[0] === 192 && p[1] === 0 && p[2] === 2) ||
-      (p[0] === 192 && p[1] === 88 && p[2] === 99) ||
-      (p[0] === 198 && (p[1] === 18 || p[1] === 19)) ||
-      (p[0] === 198 && p[1] === 51 && p[2] === 100) ||
-      (p[0] === 203 && p[1] === 0 && p[2] === 113)
+      (p[0] === 198 && (p[1] === 18 || p[1] === 19))
     );
   }
 
-  if (net.isIP(ip) === 6) {
+  if (version === 6) {
     const s = ip.toLowerCase();
 
-    if (s.includes('.')) return true;
-
     return (
-      s === '::1' ||
       s === '::' ||
+      s === '::1' ||
       s.startsWith('fc') ||
       s.startsWith('fd') ||
-      /^fe[89ab]/.test(s) ||
-      s.startsWith('::ffff:') ||
-      s.startsWith('2001:db8:')
+      s.startsWith('fe8') ||
+      s.startsWith('fe9') ||
+      s.startsWith('fea') ||
+      s.startsWith('feb') ||
+      s.startsWith('::ffff:')
     );
   }
 
   return true;
 }
 
-async function validateHost() {
+async function validateHost(hostname) {
+  if (!isPennStateHost(hostname)) {
+    throw new Error(`Unauthorized hostname: ${hostname}`);
+  }
+
   const addresses = await dns.lookup(hostname, { all: true });
 
-  if (
-    !addresses.length ||
-    addresses.some(a => isPrivate(a.address))
-  ) {
+  if (!addresses.length || addresses.some(a => isPrivate(a.address))) {
     throw new Error(
-      'Target hostname resolves to a non-public address.'
+      `Hostname resolves to a non-public address: ${hostname}`
     );
   }
 }
 
-await validateHost();
+// Follow approved Penn State redirects manually.
+async function resolveRedirects(input, maxRedirects = 8) {
+  let current = validateUrl(input);
 
-// --------------------------------------------------
-// Site boundary
-// --------------------------------------------------
+  for (let i = 0; i <= maxRedirects; i++) {
+    await validateHost(current.hostname);
 
-const origin = site.origin;
+    const response = await fetch(current, {
+      redirect: 'manual',
+      signal: AbortSignal.timeout(15000),
+      headers: {
+        'User-Agent': 'CEI-Accessibility-Scanner/0.2'
+      }
+    });
 
-// Example:
-// https://sites.psu.edu/teachingonlineprogram/
-// Only this path and its descendants are allowed.
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get('location');
 
-const siteRoot = site.pathname.replace(/\/+$/, '');
-const sitePath = siteRoot + '/';
+      if (!location) {
+        throw new Error('Redirect has no Location header.');
+      }
 
-function sameOriginUrl(raw, base = site.toString()) {
-  try {
-    const u = new URL(raw, base);
-
-    if (
-      u.origin !== origin ||
-      u.protocol !== 'https:' ||
-      u.username ||
-      u.password ||
-      u.port
-    ) {
-      return null;
+      const next = validateUrl(location, current);
+      console.log(`Redirect: ${current} -> ${next}`);
+      current = next;
+      continue;
     }
 
-    u.hash = '';
-    return u.toString();
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${current}`);
+    }
+
+    return current;
+  }
+
+  throw new Error('Too many redirects.');
+}
+
+const resolvedSite = await resolveRedirects(requestedSite);
+
+console.log(`Requested site: ${requestedSite}`);
+console.log(`Resolved destination: ${resolvedSite}`);
+
+const origin = resolvedSite.origin;
+
+// When a site uses its own domain, stay on that domain.
+// When it stays on sites.psu.edu, stay within its site path.
+function normalizePath(pathname) {
+  const decoded = decodeURIComponent(pathname);
+  return decoded.replace(/\/+/g, '/');
+}
+
+const requestedPath = normalizePath(requestedSite.pathname);
+const resolvedPath = normalizePath(resolvedSite.pathname);
+
+const sitePath =
+  resolvedSite.hostname === 'sites.psu.edu'
+    ? (resolvedPath.endsWith('/')
+        ? resolvedPath
+        : `${resolvedPath}/`)
+    : '/';
+
+function withinSite(raw, base = origin) {
+  try {
+    const url = validateUrl(raw, base);
+
+    if (url.origin !== origin) return null;
+
+    if (sitePath !== '/') {
+      const pathname = normalizePath(url.pathname);
+      const root = sitePath.slice(0, -1);
+
+      if (pathname !== root && !pathname.startsWith(sitePath)) {
+        return null;
+      }
+    }
+
+    return url.toString();
   } catch {
     return null;
   }
 }
 
-function sameSiteUrl(raw, base = site.toString()) {
-  const normalized = sameOriginUrl(raw, base);
-  if (!normalized) return null;
+// Sitemap discovery.
+const parser = new XMLParser({ ignoreAttributes: false });
 
-  const u = new URL(normalized);
+const asArray = value =>
+  value === undefined
+    ? []
+    : Array.isArray(value)
+      ? value
+      : [value];
 
-  if (
-    siteRoot &&
-    u.pathname !== siteRoot &&
-    !u.pathname.startsWith(sitePath)
-  ) {
-    return null;
+async function safeFetch(raw) {
+  const url = withinSite(raw);
+
+  if (!url) {
+    throw new Error('URL is outside the resolved website.');
   }
 
-  // Avoid scanning administrative, login, and API pages.
-  if (
-    /\/(?:wp-admin|wp-json)(?:\/|$)/i.test(u.pathname) ||
-    /\/wp-login\.php$/i.test(u.pathname)
-  ) {
-    return null;
-  }
+  await validateHost(new URL(url).hostname);
 
-  // Avoid non-HTML documents.
-  if (
-    /\.(?:pdf|jpg|jpeg|png|gif|webp|svg|zip|xml|json|css|js|mp4|mp3|docx?|xlsx?|pptx?)(?:$)/i.test(
-      u.pathname
-    )
-  ) {
-    return null;
-  }
-
-  return normalized;
-}
-
-const normalizedSite = sameSiteUrl(site.toString());
-
-if (!normalizedSite) {
-  throw new Error('The requested site URL is not permitted.');
-}
-
-console.log(`Requested site: ${normalizedSite}`);
-console.log(`Site boundary: ${origin}${sitePath}`);
-console.log(`Maximum pages: ${maxPages}`);
-
-// --------------------------------------------------
-// Sitemap discovery
-// --------------------------------------------------
-
-async function safeFetch(url) {
-  const u = sameOriginUrl(url);
-
-  if (!u) {
-    throw new Error('Cross-origin sitemap URL rejected.');
-  }
-
-  await validateHost();
-
-  const response = await fetch(u, {
-    signal: AbortSignal.timeout(15000),
+  const response = await fetch(url, {
     redirect: 'manual',
+    signal: AbortSignal.timeout(15000),
     headers: {
       'User-Agent': 'CEI-Accessibility-Scanner/0.2'
     }
   });
 
   if (response.status >= 300 && response.status < 400) {
-    throw new Error(
-      `Sitemap redirect rejected: HTTP ${response.status}`
-    );
+    throw new Error('Sitemap redirect rejected.');
   }
 
   if (!response.ok) {
-    throw new Error(`Sitemap HTTP ${response.status}`);
+    throw new Error(`HTTP ${response.status}`);
   }
 
-  const contentType = response.headers.get('content-type') || '';
-
-  if (
-    !contentType.includes('xml') &&
-    !contentType.includes('text/plain')
-  ) {
-    throw new Error('Sitemap response is not XML.');
-  }
-
-  const maxBytes = 5 * 1024 * 1024;
-  const reader = response.body?.getReader();
-
-  if (!reader) {
-    throw new Error('Sitemap response has no body.');
-  }
-
-  const chunks = [];
-  let total = 0;
-
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      total += value.byteLength;
-
-      if (total > maxBytes) {
-        await reader.cancel();
-        throw new Error('Sitemap exceeds 5 MB limit.');
-      }
-
-      chunks.push(value);
-    }
-  } finally {
-    reader.releaseLock();
-  }
-
-  return Buffer.concat(chunks).toString('utf8');
+  return response.text();
 }
 
-const parser = new XMLParser({
-  ignoreAttributes: false
-});
+async function discover() {
+  const urls = new Set([withinSite(resolvedSite.toString())]);
 
-const asArray = v =>
-  v === undefined ? [] : Array.isArray(v) ? v : [v];
-
-function sitemapCandidates() {
-  const candidates = [
-    new URL('wp-sitemap.xml', origin + sitePath).toString(),
-    new URL('sitemap_index.xml', origin + sitePath).toString(),
-    new URL('sitemap.xml', origin + sitePath).toString()
+  const sitemapPaths = [
+    '/wp-sitemap.xml',
+    '/sitemap_index.xml',
+    '/sitemap.xml'
   ];
 
-  // Domain-level sitemaps may contain many unrelated
-  // WordPress sites. We do not crawl them.
+  const pending = sitemapPaths.map(
+    p => new URL(p, origin).toString()
+  );
 
-  return [...new Set(candidates)];
-}
+  // Also check site-specific sitemap paths when applicable.
+  if (sitePath !== '/') {
+    for (const filename of sitemapPaths) {
+      const candidate = withinSite(
+        filename.slice(1),
+        resolvedSite.toString().replace(/\/?$/, '/')
+      );
 
-async function discoverFromSitemaps() {
-  const urls = new Set();
-  const pending = sitemapCandidates();
+      if (candidate) pending.push(candidate);
+    }
+  }
+
   const seen = new Set();
 
   while (
@@ -295,33 +263,56 @@ async function discoverFromSitemaps() {
   ) {
     const sitemap = pending.shift();
 
-    if (!sameOriginUrl(sitemap) || seen.has(sitemap)) {
+    if (seen.has(sitemap)) continue;
+    seen.add(sitemap);
+
+    // Root-level sitemaps may be necessary to discover
+    // sites.psu.edu subsite URLs.
+    const isRootSitemap = sitemapPaths.some(
+      p => sitemap === new URL(p, origin).toString()
+    );
+
+    if (!withinSite(sitemap) && !isRootSitemap) {
       continue;
     }
 
-    seen.add(sitemap);
-
     try {
-      const xml = parser.parse(await safeFetch(sitemap));
+      let xmlText;
+
+      if (isRootSitemap && !withinSite(sitemap)) {
+        await validateHost(new URL(sitemap).hostname);
+
+        const response = await fetch(sitemap, {
+          redirect: 'manual',
+          signal: AbortSignal.timeout(15000)
+        });
+
+        if (!response.ok || response.status >= 300 && response.status < 400) {
+          continue;
+        }
+
+        xmlText = await response.text();
+      } else {
+        xmlText = await safeFetch(sitemap);
+      }
+
+      const xml = parser.parse(xmlText);
 
       for (const item of asArray(xml.sitemapindex?.sitemap)) {
-        const link = sameOriginUrl(item.loc);
+        const link = withinSite(item.loc);
 
-        // Only follow sitemap files located inside
-        // the requested WordPress site's directory.
-        if (
-          link &&
-          new URL(link).pathname.startsWith(sitePath) &&
-          !seen.has(link)
-        ) {
+        if (link && !seen.has(link)) {
           pending.push(link);
         }
       }
 
       for (const item of asArray(xml.urlset?.url)) {
-        const link = sameSiteUrl(item.loc);
+        const link = withinSite(item.loc);
 
-        if (link) {
+        if (
+          link &&
+          !/\.(pdf|jpg|jpeg|png|gif|webp|zip|xml)(\?|$)/i.test(link)
+        ) {
           urls.add(link);
         }
 
@@ -334,46 +325,21 @@ async function discoverFromSitemaps() {
     }
   }
 
-  return [...urls];
+  return [...urls].filter(Boolean).slice(0, maxPages);
 }
 
-// --------------------------------------------------
-// Browser and page discovery
-// --------------------------------------------------
+const urls = await discover();
+
+console.log(`Scanning ${urls.length} page(s) on ${origin}`);
 
 const browser = await chromium.launch({
   headless: true
 });
 
 const pages = [];
-const queue = [normalizedSite];
-const queued = new Set(queue);
-const visited = new Set();
 
 try {
-  const sitemapUrls = await discoverFromSitemaps();
-
-  for (const url of sitemapUrls) {
-    if (queue.length >= maxPages) break;
-
-    if (!queued.has(url)) {
-      queue.push(url);
-      queued.add(url);
-    }
-  }
-
-  console.log(
-    `Discovered ${queue.length} initial page(s).`
-  );
-
-  while (queue.length && visited.size < maxPages) {
-    const url = queue.shift();
-
-    if (visited.has(url)) continue;
-    visited.add(url);
-
-    console.log(`Scanning: ${url}`);
-
+  for (const url of urls) {
     const context = await browser.newContext({
       ignoreHTTPSErrors: false,
       serviceWorkers: 'block'
@@ -381,88 +347,42 @@ try {
 
     const page = await context.newPage();
 
-    let blockedNavigation = null;
-
-    // Prevent main-frame navigation outside the
-    // requested WordPress site. Assets may load
-    // from external domains as normal.
+    // Prevent navigation outside the resolved site.
     await page.route('**/*', async route => {
       const request = route.request();
 
-      if (
-        request.isNavigationRequest() &&
-        request.frame() === page.mainFrame() &&
-        !sameSiteUrl(request.url())
-      ) {
-        blockedNavigation = request.url();
-        return route.abort();
+      if (request.isNavigationRequest()) {
+        const destination = withinSite(request.url());
+
+        if (!destination) {
+          return route.abort();
+        }
       }
 
       return route.continue();
     });
 
     try {
+      await validateHost(new URL(url).hostname);
+
       const response = await page.goto(url, {
         waitUntil: 'domcontentloaded',
         timeout: 30000
       });
 
-      if (!response) {
+      if (!response || !response.ok()) {
         throw new Error(
-          blockedNavigation
-            ? `Navigation redirected outside the requested site: ${blockedNavigation}`
-            : 'Navigation returned no HTTP response.'
+          `HTTP ${response?.status() || 'no response'}`
         );
       }
 
-      const finalUrl = page.url();
-
-      if (!sameSiteUrl(finalUrl)) {
+      if (!withinSite(page.url())) {
         throw new Error(
-          `Page redirected outside the requested site: ${finalUrl}`
-        );
-      }
-
-      if (!response.ok()) {
-        throw new Error(
-          `HTTP ${response.status()} at ${finalUrl}`
-        );
-      }
-
-      const contentType =
-        response.headers()['content-type'] || '';
-
-      if (
-        contentType &&
-        !contentType.includes('text/html')
-      ) {
-        throw new Error(
-          `Expected HTML but received ${contentType}`
+          `Page redirected outside the resolved site: ${page.url()}`
         );
       }
 
       await page.waitForTimeout(700);
-
-      // Discover links from this page before scanning.
-      // Only links inside the requested site are queued.
-      const links = await page.locator('a[href]').evaluateAll(
-        elements => elements.map(a => a.href)
-      );
-
-      for (const raw of links) {
-        if (queued.size >= maxPages) break;
-
-        const link = sameSiteUrl(raw, finalUrl);
-
-        if (
-          link &&
-          !queued.has(link) &&
-          !visited.has(link)
-        ) {
-          queue.push(link);
-          queued.add(link);
-        }
-      }
 
       const result = await new AxeBuilder({ page })
         .withTags([
@@ -488,7 +408,7 @@ try {
       }));
 
       pages.push({
-        url,
+        url: page.url(),
         title: await page.title(),
         status: 'scanned',
         violations,
@@ -496,33 +416,19 @@ try {
       });
 
       console.log(
-        `✓ ${url}: ${violations.length} rule violations`
+        `✓ ${page.url()}: ${violations.length} rule violations`
       );
     } catch (error) {
-      let message = error.message;
-
-      if (blockedNavigation) {
-        message =
-          `Navigation blocked outside requested site: ${blockedNavigation}. ` +
-          message;
-      } else if (
-        message.includes('Timeout') ||
-        message.includes('timeout')
-      ) {
-        message =
-          `Page navigation or scan timed out: ${message}`;
-      }
-
       pages.push({
         url,
         title: '',
         status: 'error',
-        error: message,
+        error: error.message,
         violations: [],
         incompleteCount: 0
       });
 
-      console.log(`✗ ${url}: ${message}`);
+      console.log(`✗ ${url}: ${error.message}`);
     } finally {
       await context.close();
     }
@@ -531,21 +437,16 @@ try {
   await browser.close();
 }
 
-// --------------------------------------------------
-// Generate JSON report
-// --------------------------------------------------
-
+// Build report using the existing dashboard schema.
 const report = {
-  site: normalizedSite,
+  site: resolvedSite.toString(),
+  requestedSite: requestedSite.toString(),
+  resolvedSite: resolvedSite.toString(),
   scannedAt: new Date().toISOString(),
-  scannedPages: pages.filter(
-    p => p.status === 'scanned'
-  ).length,
-  failedPages: pages.filter(
-    p => p.status === 'error'
-  ).length,
+  scannedPages: pages.filter(p => p.status === 'scanned').length,
+  failedPages: pages.filter(p => p.status === 'error').length,
   ruleViolations: pages.reduce(
-    (n, p) => n + p.violations.length,
+    (total, p) => total + p.violations.length,
     0
   ),
   affectedPages: pages.filter(
@@ -562,10 +463,6 @@ await fs.writeFile(
   path.join(outputDir, 'report.json'),
   JSON.stringify(report, null, 2)
 );
-
-// --------------------------------------------------
-// Generate CSV report
-// --------------------------------------------------
 
 const csvEscape = value =>
   `"${String(value ?? '').replaceAll('"', '""')}"`;
@@ -611,17 +508,14 @@ for (const p of pages) {
 
 await fs.writeFile(
   path.join(outputDir, 'report.csv'),
-  rows
-    .map(row => row.map(csvEscape).join(','))
-    .join('\n')
+  rows.map(
+    row => row.map(csvEscape).join(',')
+  ).join('\n')
 );
 
-console.log('-----------------------------------');
-console.log('Accessibility review complete');
-console.log(`Site: ${report.site}`);
-console.log(`Pages scanned: ${report.scannedPages}`);
-console.log(`Pages failed: ${report.failedPages}`);
-console.log(`Rule violations: ${report.ruleViolations}`);
-console.log(`Affected pages: ${report.affectedPages}`);
 console.log(`Report written to ${outputDir}`);
-console.log('-----------------------------------');
+console.log(
+  `Completed: ${report.scannedPages} scanned, ` +
+  `${report.failedPages} failed, ` +
+  `${report.ruleViolations} rule violations`
+);
