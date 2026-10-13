@@ -474,12 +474,21 @@ await fs.writeFile(
   JSON.stringify(report, null, 2)
 );
 
-// ==================================================
-// GENERATE CSV REPORT
-// ==================================================
 
-const csvEscape = value =>
-  `"${String(value ?? '').replaceAll('"', '""')}"`;
+ // ==================================================
+ // GENERATE CSV REPORT
+ // ==================================================
+
+const csvEscape = value => {
+  // Prevent spreadsheet applications from interpreting
+  // untrusted website content as formulas.
+  const text = String(value ?? '');
+  const safeText = /^[\s]*[=+\-@\t\r]/.test(text)
+    ? `'${text}`
+    : text;
+
+  return `"${safeText.replaceAll('"', '""')}"`;
+};
 
 const rows = [[
   'page',
@@ -488,11 +497,15 @@ const rows = [[
   'impact',
   'description',
   'affected_elements',
+  'affected_elements_detail',
   'help_url',
   'error'
 ]];
 
 for (const p of pages) {
+
+  // Pages without accessibility violations,
+  // including pages that could not be scanned.
   if (!p.violations.length) {
     rows.push([
       p.url,
@@ -502,11 +515,38 @@ for (const p of pages) {
       '',
       '',
       '',
+      '',
       p.error || ''
     ]);
+
+    continue;
   }
 
+  // Pages with accessibility violations.
   for (const v of p.violations) {
+
+    // Create a numbered list of affected elements.
+    // Include HTML and CSS selectors to help users
+    // locate the elements in their website.
+    const affectedElementsDetail = v.nodes
+      .map((node, index) => {
+
+        const html = node.html || 'HTML unavailable';
+
+        const selector = Array.isArray(node.target)
+          ? node.target.join(', ')
+          : String(node.target || '');
+
+        return [
+          `${index + 1}. ${html}`,
+          selector ? `Selector: ${selector}` : ''
+        ]
+          .filter(Boolean)
+          .join('\n');
+
+      })
+      .join('\n\n');
+
     rows.push([
       p.url,
       p.status,
@@ -514,6 +554,7 @@ for (const p of pages) {
       v.impact,
       v.help,
       v.nodes.length,
+      affectedElementsDetail,
       v.helpUrl,
       ''
     ]);
@@ -522,9 +563,9 @@ for (const p of pages) {
 
 await fs.writeFile(
   path.join(outputDir, 'report.csv'),
-  rows.map(
-    row => row.map(csvEscape).join(',')
-  ).join('\n')
+  rows
+    .map(row => row.map(csvEscape).join(','))
+    .join('\n')
 );
 
 console.log(`Report written to ${outputDir}`);
