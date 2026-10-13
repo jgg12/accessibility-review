@@ -1,18 +1,105 @@
 {
-  "site": "https://sites.psu.edu/teachingonlineprogram",
-  "scannedAt": "2026-10-13T15:22:19.870Z",
-  "scannedPages": 0,
-  "failedPages": 1,
-  "ruleViolations": 0,
-  "affectedPages": 0,
+  "site": "https://top.psu.edu/",
+  "requestedSite": "https://sites.psu.edu/teachingonlineprogram",
+  "resolvedSite": "https://top.psu.edu/",
+  "scannedAt": "2026-10-13T15:33:06.545Z",
+  "scannedPages": 1,
+  "failedPages": 0,
+  "ruleViolations": 4,
+  "affectedPages": 1,
   "pages": [
     {
-      "url": "https://sites.psu.edu/teachingonlineprogram",
-      "title": "",
-      "status": "error",
-      "error": "Page redirected outside the requested site: https://top.psu.edu/",
-      "violations": [],
-      "incompleteCount": 0
+      "url": "https://top.psu.edu/",
+      "title": "Teaching Online Program",
+      "status": "scanned",
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/color-contrast?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                "#et_pb_contact_0_name_0"
+              ],
+              "html": "<input type=\"text\" name=\"et_pb_contact_0_name_0\" id=\"et_pb_contact_0_name_0\" class=\"input\" data-required_mark=\"required\" data-field_type=\"input\" data-original_id=\"name\" placeholder=\"Name\" title=\"\" value=\"\">",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.45 (foreground color: #999999, background color: #eeeeee, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                "#et_pb_contact_0_email_1"
+              ],
+              "html": "<input type=\"text\" name=\"et_pb_contact_0_email_1\" id=\"et_pb_contact_0_email_1\" class=\"input\" data-required_mark=\"required\" data-field_type=\"email\" data-original_id=\"email\" placeholder=\"PSU Email Address\" title=\"\" value=\"\">",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.45 (foreground color: #999999, background color: #eeeeee, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                "#et_pb_contact_0_message_2"
+              ],
+              "html": "<textarea name=\"et_pb_contact_0_message_2\" id=\"et_pb_contact_0_message_2\" class=\"et_pb_contact_message input\" data-required_mark=\"required\" data-field_type=\"text\" data-original_id=\"message\" placeholder=\"Message\"></textarea>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.45 (foreground color: #999999, background color: #eeeeee, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            }
+          ]
+        },
+        {
+          "id": "frame-title",
+          "impact": "serious",
+          "description": "Ensure <iframe> and <frame> elements have an accessible name",
+          "help": "Frames must have an accessible name",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/frame-title?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                "#kaltura_player_1895948944"
+              ],
+              "html": "<iframe id=\"kaltura_player_18959...\" src=\"https://cdnapisec.ka...\" allowfullscreen=\"\" webkitallowfullscree...=\"\" mozallowfullscreen=\"\" allow=\"autoplay *; fullscre...\" style=\"width:720px;height:4...\">",
+              "failureSummary": "Fix any of the following:\n  Element has no title attribute\n  aria-label attribute does not exist or is empty\n  aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty\n  Element's default semantics were not overridden with role=\"none\" or role=\"presentation\""
+            }
+          ]
+        },
+        {
+          "id": "link-in-text-block",
+          "impact": "serious",
+          "description": "Ensure links are distinguished from surrounding text in a way that does not rely on color",
+          "help": "Links must be distinguishable without relying on color",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/link-in-text-block?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                ".et_pb_text_5 > .et_pb_text_inner > p > a[rel=\"noopener\"][target=\"_blank\"]:nth-child(1)"
+              ],
+              "html": "<a href=\"https://www.psu.edu/news/administration/story/provost-endorsement-program-support-faculty-professional-development/\" target=\"_blank\" rel=\"noopener\">The Provost Endorsement Program to support faculty professional development Penn State news article</a>",
+              "failureSummary": "Fix any of the following:\n  The link has insufficient color contrast of 1.03:1 with the surrounding text. (Minimum contrast is 3:1, link text: #1d64b4, surrounding text: #666666)\n  The link has no styling (such as underline) to distinguish it from the surrounding text"
+            },
+            {
+              "target": [
+                "a[rel=\"noopener\"][target=\"_blank\"]:nth-child(2)"
+              ],
+              "html": "<a href=\"https://vpfa.psu.edu/provost-endorsement-program/\" target=\"_blank\" rel=\"noopener\">Provost Endorsement Website</a>",
+              "failureSummary": "Fix any of the following:\n  The link has insufficient color contrast of 1.03:1 with the surrounding text. (Minimum contrast is 3:1, link text: #1d64b4, surrounding text: #666666)\n  The link has no styling (such as underline) to distinguish it from the surrounding text"
+            }
+          ]
+        },
+        {
+          "id": "meta-viewport",
+          "impact": "moderate",
+          "description": "Ensure <meta name=\"viewport\"> does not disable text scaling and zooming",
+          "help": "Zooming and scaling must not be disabled",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/meta-viewport?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                "meta[name=\"viewport\"]"
+              ],
+              "html": "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0\">",
+              "failureSummary": "Fix any of the following:\n  user-scalable on <meta> tag disables zooming on mobile devices"
+            }
+          ]
+        }
+      ],
+      "incompleteCount": 2
     }
   ]
 }
