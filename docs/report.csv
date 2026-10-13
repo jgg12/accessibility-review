@@ -1,5 +1,18 @@
-"page","status","rule_id","impact","description","affected_elements","help_url","error"
-"https://top.psu.edu/","scanned","color-contrast","serious","Elements must meet minimum color contrast ratio thresholds","3","https://dequeuniversity.com/rules/axe/4.13/color-contrast?application=playwright",""
-"https://top.psu.edu/","scanned","frame-title","serious","Frames must have an accessible name","1","https://dequeuniversity.com/rules/axe/4.13/frame-title?application=playwright",""
-"https://top.psu.edu/","scanned","link-in-text-block","serious","Links must be distinguishable without relying on color","2","https://dequeuniversity.com/rules/axe/4.13/link-in-text-block?application=playwright",""
-"https://top.psu.edu/","scanned","meta-viewport","moderate","Zooming and scaling must not be disabled","1","https://dequeuniversity.com/rules/axe/4.13/meta-viewport?application=playwright",""
+"page","status","rule_id","impact","description","affected_elements","affected_elements_detail","help_url","error"
+"https://top.psu.edu/","scanned","color-contrast","serious","Elements must meet minimum color contrast ratio thresholds","3","1. <input type=""text"" name=""et_pb_contact_0_name_0"" id=""et_pb_contact_0_name_0"" class=""input"" data-required_mark=""required"" data-field_type=""input"" data-original_id=""name"" placeholder=""Name"" title="""" value="""">
+Selector: #et_pb_contact_0_name_0
+
+2. <input type=""text"" name=""et_pb_contact_0_email_1"" id=""et_pb_contact_0_email_1"" class=""input"" data-required_mark=""required"" data-field_type=""email"" data-original_id=""email"" placeholder=""PSU Email Address"" title="""" value="""">
+Selector: #et_pb_contact_0_email_1
+
+3. <textarea name=""et_pb_contact_0_message_2"" id=""et_pb_contact_0_message_2"" class=""et_pb_contact_message input"" data-required_mark=""required"" data-field_type=""text"" data-original_id=""message"" placeholder=""Message""></textarea>
+Selector: #et_pb_contact_0_message_2","https://dequeuniversity.com/rules/axe/4.13/color-contrast?application=playwright",""
+"https://top.psu.edu/","scanned","frame-title","serious","Frames must have an accessible name","1","1. <iframe id=""kaltura_player_18959..."" src=""https://cdnapisec.ka..."" allowfullscreen="""" webkitallowfullscree...="""" mozallowfullscreen="""" allow=""autoplay *; fullscre..."" style=""width:720px;height:4..."">
+Selector: #kaltura_player_1895948944","https://dequeuniversity.com/rules/axe/4.13/frame-title?application=playwright",""
+"https://top.psu.edu/","scanned","link-in-text-block","serious","Links must be distinguishable without relying on color","2","1. <a href=""https://www.psu.edu/news/administration/story/provost-endorsement-program-support-faculty-professional-development/"" target=""_blank"" rel=""noopener"">The Provost Endorsement Program to support faculty professional development Penn State news article</a>
+Selector: .et_pb_text_5 > .et_pb_text_inner > p > a[rel=""noopener""][target=""_blank""]:nth-child(1)
+
+2. <a href=""https://vpfa.psu.edu/provost-endorsement-program/"" target=""_blank"" rel=""noopener"">Provost Endorsement Website</a>
+Selector: a[rel=""noopener""][target=""_blank""]:nth-child(2)","https://dequeuniversity.com/rules/axe/4.13/link-in-text-block?application=playwright",""
+"https://top.psu.edu/","scanned","meta-viewport","moderate","Zooming and scaling must not be disabled","1","1. <meta name=""viewport"" content=""width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0"">
+Selector: meta[name=""viewport""]","https://dequeuniversity.com/rules/axe/4.13/meta-viewport?application=playwright",""
