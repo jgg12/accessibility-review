@@ -1,0 +1,16 @@
+name: Request accessibility review
+description: Scan a public sites.psu.edu website (maximum 25 sitemap pages)
+title: "Accessibility review request"
+labels: ["accessibility-review"]
+body:
+  - type: input
+    id: website
+    attributes:
+      label: Website URL
+      description: Enter a public HTTPS sites.psu.edu URL
+      placeholder: https://example.sites.psu.edu/
+    validations:
+      required: true
+  - type: markdown
+    attributes:
+      value: "Only request reviews of sites you own or are authorized to test. Results are published on the dashboard."
